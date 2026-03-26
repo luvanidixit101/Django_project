@@ -1,0 +1,370 @@
+🚀 1. Project Initialization (uv + Django)
+📁 Create project folder
+mkdir myproject
+cd myproject
+🧪 Create virtual environment
+uv venv
+▶ Activate
+.venv\Scripts\activate
+📦 2. Install Dependencies
+uv pip install django psycopg2-binary python-dotenv
+🏗 3. Create Django Project
+django-admin startproject config .
+
+👉 Important: . keeps root clean (best practice)
+
+📂 4. Recommended Folder Structure
+myproject/
+│
+├── .venv/
+├── config/                 # Main Django project
+│   ├── __init__.py
+│   ├── settings/
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── dev.py
+│   │   └── prod.py
+│   ├── urls.py
+│   ├── asgi.py
+│   └── wsgi.py
+│
+├── apps/                   # All apps here
+│   └── users/
+│
+├── .env
+├── manage.py
+├── pyproject.toml
+├── uv.lock
+└── README.md
+⚙️ 5. Split Settings (Best Practice)
+🔹 config/settings/base.py
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+DEBUG = False
+
+ALLOWED_HOSTS = []
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+]
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": "5432",
+    }
+}
+🔹 dev.py
+from .base import *
+
+DEBUG = True
+ALLOWED_HOSTS = ["*"]
+🔹 prod.py
+from .base import *
+
+DEBUG = False
+ALLOWED_HOSTS = ["yourdomain.com"]
+🔐 6. .env Configuration
+
+Create .env in root:
+
+SECRET_KEY=django-secret-key
+DB_NAME=mydb
+DB_USER=postgres
+DB_PASSWORD=yourpassword
+DB_HOST=localhost
+🧩 7. Update manage.py
+
+Replace settings line:
+
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE",
+    "config.settings.dev"
+)
+🐘 8. PostgreSQL Setup
+Create DB:
+CREATE DATABASE mydb;
+▶️ 9. Run Project
+python manage.py migrate
+python manage.py runserver
+📦 10. Dependency Lock (IMPORTANT with uv)
+Generate lock file:
+uv pip freeze > requirements.txt
+
+OR better:
+
+uv lock
+
+👉 This creates:
+
+uv.lock   ✅ (exact reproducible builds)
+📥 Install from lock (on another machine)
+uv sync
+🧱 11. Create First App
+python manage.py startapp users apps/users
+
+Add to INSTALLED_APPS:
+
+"apps.users",
+🧼 12. Best Practices (VERY IMPORTANT)
+✅ Structure
+Keep apps inside /apps
+Split settings (base/dev/prod)
+Use .env (never hardcode secrets)
+✅ Security
+Never commit .env
+Add .env to .gitignore
+✅ Git Ignore
+.venv/
+__pycache__/
+.env
+*.pyc
+db.sqlite3
+✅ Naming
+Project → config
+Apps → feature-based (users, payments, etc.)
+✅ Production Ready Add-ons
+
+Install later:
+
+uv pip install gunicorn whitenoise
+⚡ Final Workflow Summary
+uv venv
+activate
+uv pip install django psycopg2-binary python-dotenv
+django-admin startproject config .
+create .env
+setup PostgreSQL
+python manage.py migrate
+python manage.py runserver
+uv lock
+🔥 If You Want Next Step
+
+I can extend this setup with:
+
+🔐 JWT Authentication (login/register APIs)
+🧠 Clean Architecture (services, repositories)
+📊 Admin panel customization
+🚀 Deployment (Docker + Nginx + Gunicorn)
+
+Just tell me what you want next.
+
+I can extend this setup with:
+
+🔐 JWT Authentication (login/register APIs)
+🧠 Clean Architecture (services, repositories)
+📊 Admin panel customization
+🚀 Deployment (Docker + Nginx + Gunicorn)
+
+Just tell me what you want next.
+
+Good—this is the right stage to level up your project. I’ll extend your setup with production-grade patterns, not just basic examples.
+
+We’ll cover all 4 areas in a clean, scalable way using Django + Django REST Framework + PostgreSQL + uv.
+
+🔐 1. JWT Authentication (Login/Register APIs)
+📦 Install
+uv pip install djangorestframework djangorestframework-simplejwt
+⚙️ settings (base.py)
+INSTALLED_APPS += [
+    "rest_framework",
+]
+
+from datetime import timedelta
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+👤 Custom User Model (IMPORTANT)
+
+👉 Always do this early
+
+apps/users/models.py
+from django.contrib.auth.models import AbstractUser
+
+class User(AbstractUser):
+    pass
+settings
+AUTH_USER_MODEL = "users.User"
+🧾 Serializer
+apps/users/api/serializers.py
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class RegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("username", "password")
+    
+    def create(self, validated_data):
+        user = User.objects.create_user(**validated_data)
+        return user
+🎯 Views
+apps/users/api/views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .serializers import RegisterSerializer
+from rest_framework import status
+
+class RegisterView(APIView):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"msg": "User created"}, status=201)
+        return Response(serializer.errors, status=400)
+🔗 URLs
+from django.urls import path
+from .views import RegisterView
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+urlpatterns = [
+    path("register/", RegisterView.as_view()),
+    path("login/", TokenObtainPairView.as_view()),
+]
+🧠 2. Clean Architecture (Service Layer)
+
+👉 Goal: Keep business logic OUT of views
+
+📂 Structure Upgrade
+apps/
+ └── users/
+     ├── api/
+     │   ├── views.py
+     │   └── serializers.py
+     ├── services/
+     │   └── user_service.py
+     ├── repositories/
+     │   └── user_repo.py
+🧩 Repository Layer
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class UserRepository:
+    
+    @staticmethod
+    def create_user(data):
+        return User.objects.create_user(**data)
+⚙️ Service Layer
+from apps.users.repositories.user_repo import UserRepository
+
+class UserService:
+    
+    @staticmethod
+    def register_user(data):
+        return UserRepository.create_user(data)
+🔄 Use in View
+from apps.users.services.user_service import UserService
+
+class RegisterView(APIView):
+    def post(self, request):
+        user = UserService.register_user(request.data)
+        return Response({"msg": "User created"})
+📊 3. Admin Panel Customization
+apps/users/admin.py
+from django.contrib import admin
+from .models import User
+
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ("id", "username", "is_staff")
+    search_fields = ("username",)
+    list_filter = ("is_staff",)
+✨ Advanced (Optional)
+Add filters
+Add inline models
+Add readonly fields
+🚀 4. Deployment (Docker + Nginx + Gunicorn)
+📦 Install
+uv pip install gunicorn
+🐳 Dockerfile
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY . .
+
+RUN pip install uv && uv sync
+
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+🐳 docker-compose.yml
+version: "3.9"
+
+services:
+  web:
+    build: .
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+🌐 Nginx (Reverse Proxy)
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://web:8000;
+    }
+}
+⚡ Final Architecture Overview
+Client (React / Frontend)
+        ↓
+Django API (Views)
+        ↓
+Service Layer (Business Logic)
+        ↓
+Repository Layer (DB Access)
+        ↓
+PostgreSQL
+🔥 What You Should Do Next (Priority Order)
+✅ Implement JWT (login/register)
+✅ Add service layer (clean code)
+✅ Customize admin
+✅ Add Docker (deployment ready)
+💡 If You Want Next Level
+
+I can extend further into:
+
+🔐 Refresh tokens + logout blacklist
+📧 Email verification system
+🧾 Role-based access (RBAC)
+📊 Production logging + monitoring
+⚡ CI/CD pipeline (GitHub Actions)
+
+Just tell me: “advance level setup” and I’ll take you there.
